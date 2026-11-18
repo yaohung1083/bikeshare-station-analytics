@@ -1,0 +1,40 @@
+:root {
+  font-family: system-ui, sans-serif;
+  color: #153630;
+  background: #f2f6f3;
+  line-height: 1.55;
+}
+
+body { margin: 0; }
+main { max-width: 48rem; margin: 4rem auto; padding: 0 1.25rem; }
+header { margin-bottom: 1.75rem; }
+.brand { color: #236557; font-weight: 700; margin: 0; }
+h1 { font-size: clamp(2rem, 6vw, 3.5rem); line-height: 1.15; margin: .35rem 0 0; }
+h2 { margin: 0; }
+form, dl > div {
+  background: white;
+  border: 1px solid #cbdad4;
+  border-radius: .85rem;
+  padding: 1.25rem;
+}
+form, dl { display: grid; gap: 1rem; }
+form { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+form label:first-child { grid-column: 1 / -1; }
+label { display: grid; gap: .35rem; font-weight: 650; }
+input, button { font: inherit; border-radius: .5rem; padding: .65rem .75rem; }
+input { min-width: 0; border: 1px solid #8da99e; color: inherit; }
+button { justify-self: start; color: white; background: #185d4d; border: 0; cursor: pointer; }
+button:disabled { opacity: .65; cursor: wait; }
+:focus-visible { outline: 3px solid #267e6a; outline-offset: 3px; }
+section { margin-top: 1.75rem; }
+.times { margin: .25rem 0 0; }
+dl { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+dd { margin: .25rem 0 0; font-size: clamp(1.25rem, 5vw, 2rem); font-variant-numeric: tabular-nums; }
+.error { color: #842d26; background: #fff0ee; border-radius: .5rem; padding: .75rem 1rem; }
+
+@media (max-width: 34rem) {
+  main { margin-top: 2rem; }
+  form { grid-template-columns: 1fr; }
+  dl { gap: .5rem; }
+  dl > div { padding: .65rem; }
+}
