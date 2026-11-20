@@ -38,3 +38,29 @@ dd { margin: .25rem 0 0; font-size: clamp(1.25rem, 5vw, 2rem); font-variant-nume
   dl { gap: .5rem; }
   dl > div { padding: .65rem; }
 }
+
+.hourly { margin-top: 2.75rem; }
+.hourly h2 { margin-bottom: .75rem; }
+.hourly form label:first-child { grid-column: auto; }
+.hourly-chart {
+  margin: 1rem 0 0;
+  padding: 1rem;
+  border: 1px solid #cbdad4;
+  border-radius: .85rem;
+  background: white;
+}
+.hourly-chart figcaption { font-weight: 700; }
+.hourly-chart svg { display: block; width: 100%; }
+.hourly-chart text { fill: currentColor; font-size: 16px; }
+.chart-grid { stroke: #cbdad4; }
+.hourly-chart polyline { fill: none; stroke-width: 3; stroke-linejoin: round; }
+.departures-line { stroke: #126855; }
+.arrivals-line { stroke: #a24820; stroke-dasharray: 7 5; }
+.chart-legend { display: flex; gap: 1.25rem; list-style: none; padding: 0; }
+.chart-legend li { display: flex; align-items: center; gap: .5rem; }
+.chart-legend span { width: 1.5rem; border-top: 3px solid #126855; }
+.chart-legend span.arrivals-line { border-top: 3px dashed #a24820; }
+.hourly-chart summary { cursor: pointer; }
+.hourly-chart table { width: 100%; margin-top: .75rem; border-collapse: collapse; }
+.hourly-chart th, .hourly-chart td { padding: .3rem .5rem; border-bottom: 1px solid #cbdad4; text-align: right; }
+.hourly-chart th:first-child { text-align: left; }

@@ -3,6 +3,7 @@
 import os
 import sqlite3
 from contextlib import closing
+from datetime import date as calendar_date
 from datetime import datetime
 from pathlib import Path
 from typing import Annotated
@@ -65,3 +66,57 @@ def station_activity(
         arrivals=arrivals,
         net_departures=departures - arrivals,
     )
+
+
+class HourActivity(BaseModel):
+    hour: str
+    departures: int
+    arrivals: int
+
+
+class StationHourlyActivity(BaseModel):
+    station_id: str
+    date: calendar_date
+    hours: list[HourActivity]
+
+
+@app.get("/stations/{station_id}/hourly-activity", response_model=StationHourlyActivity)
+def station_hourly_activity(
+    station_id: str,
+    date: Annotated[str, Query(pattern=r"^[0-9]{4}-[0-9]{2}-[0-9]{2}$")],
+):
+    try:
+        day = calendar_date.fromisoformat(date)
+    except ValueError:
+        raise HTTPException(422, "Use a valid date in YYYY-MM-DD format.") from None
+
+    # Inclusive bounds cover every timestamp at the importer's microsecond precision.
+    bounds = (f"{day} 00:00:00.000000", f"{day} 23:59:59.999999")
+    database = Path(os.environ.get("BIKESHARE_DB", DEFAULT_DB)).resolve()
+    try:
+        with closing(sqlite3.connect(f"{database.as_uri()}?mode=ro", uri=True)) as db:
+            rows = db.execute("""
+                SELECT hour, SUM(departures), SUM(arrivals)
+                FROM (
+                    SELECT substr(started_at, 12, 2) AS hour, COUNT(*) AS departures, 0 AS arrivals
+                    FROM trips
+                    WHERE start_station_id = :station AND started_at BETWEEN :first AND :last
+                    GROUP BY 1
+                    UNION ALL
+                    SELECT substr(ended_at, 12, 2) AS hour, 0 AS departures, COUNT(*) AS arrivals
+                    FROM trips
+                    WHERE end_station_id = :station AND ended_at BETWEEN :first AND :last
+                    GROUP BY 1
+                )
+                GROUP BY hour
+            """, {"station": station_id, "first": bounds[0], "last": bounds[1]}).fetchall()
+    except sqlite3.Error as error:
+        raise HTTPException(503, "Trip database is unavailable. Run import_trips.py first.") from error
+
+    counts = {hour: (departures, arrivals) for hour, departures, arrivals in rows}
+    hours = []
+    for number in range(24):
+        hour = f"{number:02d}"
+        departures, arrivals = counts.get(hour, (0, 0))
+        hours.append(HourActivity(hour=f"{hour}:00", departures=departures, arrivals=arrivals))
+    return StationHourlyActivity(station_id=station_id, date=day, hours=hours)

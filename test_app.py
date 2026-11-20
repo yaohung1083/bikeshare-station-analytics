@@ -117,3 +117,70 @@ def test_unavailable_database_returns_503(client, database_path):
     assert response.status_code == 503
     assert "Trip database is unavailable." in response.json()["detail"]
     assert not database_path.exists()
+
+
+HOURLY_URL = "/stations/31600/hourly-activity"
+DAY = "2025-01-14"
+
+
+def test_hourly_activity_groups_events_and_fills_all_hours(seeded_client, database_path):
+    with closing(sqlite3.connect(database_path)) as db, db:
+        db.executemany(
+            """
+            INSERT INTO trips (ride_id, started_at, ended_at, start_station_id, end_station_id)
+            VALUES (?, ?, ?, ?, ?)
+            """,
+            [
+                ("prev-day", "2025-01-13 23:59:59.999999", "2025-01-14 00:00:00.000000", "31600", "31600"),
+                ("last-microsecond", "2025-01-14 23:59:59.999999", "2025-01-15 00:00:00.000000", "31600", "31600"),
+                ("next-day", "2025-01-15 00:00:00.000000", "2025-01-15 00:05:00.000000", "31600", "31600"),
+            ],
+        )
+
+    response = seeded_client.get(HOURLY_URL, params={"date": DAY})
+
+    assert response.status_code == 200
+    expected = {0: (0, 1), 8: (1, 1), 9: (2, 1), 10: (1, 1), 23: (1, 0)}
+    assert response.json() == {
+        "station_id": "31600",
+        "date": DAY,
+        "hours": [
+            {"hour": f"{hour:02d}:00", "departures": expected.get(hour, (0, 0))[0],
+             "arrivals": expected.get(hour, (0, 0))[1]}
+            for hour in range(24)
+        ],
+    }
+
+
+@pytest.mark.parametrize(
+    ("station_id", "day"), [("31699", DAY), ("31600", "2025-01-16"), ("31600", "9999-12-31")]
+)
+def test_hourly_activity_without_records_returns_24_zeros(seeded_client, station_id, day):
+    response = seeded_client.get(f"/stations/{station_id}/hourly-activity", params={"date": day})
+
+    assert response.status_code == 200
+    assert response.json() == {
+        "station_id": station_id,
+        "date": day,
+        "hours": [
+            {"hour": f"{hour:02d}:00", "departures": 0, "arrivals": 0}
+            for hour in range(24)
+        ],
+    }
+
+
+@pytest.mark.parametrize("day", ["2025-02-29", "20250114", "2025-1-14", DAY + "T00:00:00", DAY + "Z"])
+def test_hourly_activity_rejects_invalid_date(client, day):
+    assert client.get(HOURLY_URL, params={"date": day}).status_code == 422
+
+
+def test_hourly_activity_requires_date(client):
+    assert client.get(HOURLY_URL).status_code == 422
+
+
+def test_hourly_activity_returns_503_for_unavailable_database(client, database_path):
+    response = client.get(HOURLY_URL, params={"date": DAY})
+
+    assert response.status_code == 503
+    assert "Trip database is unavailable." in response.json()["detail"]
+    assert not database_path.exists()
