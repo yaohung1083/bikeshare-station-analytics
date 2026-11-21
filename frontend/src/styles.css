@@ -64,3 +64,18 @@ dd { margin: .25rem 0 0; font-size: clamp(1.25rem, 5vw, 2rem); font-variant-nume
 .hourly-chart table { width: 100%; margin-top: .75rem; border-collapse: collapse; }
 .hourly-chart th, .hourly-chart td { padding: .3rem .5rem; border-bottom: 1px solid #cbdad4; text-align: right; }
 .hourly-chart th:first-child { text-align: left; }
+
+.station-comparison form button { align-self: end; }
+.comparison-errors { margin-top: 1rem; }
+.comparison-errors p { margin: 0; overflow-wrap: anywhere; }
+.comparison-metric { margin-top: .75rem; width: fit-content; }
+.comparison-metric select {
+  padding: .45rem .6rem;
+  border: 1px solid #8da99e;
+  border-radius: .5rem;
+  background: white;
+  color: inherit;
+  font: inherit;
+}
+.comparison-zero { stroke: #627e74; stroke-width: 1.5; }
+.station-comparison .chart-legend { flex-wrap: wrap; overflow-wrap: anywhere; }

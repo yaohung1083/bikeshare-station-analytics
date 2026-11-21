@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import StationComparison from './StationComparison.jsx';
 
 function describeHttpError(status, detail, invalidInputMessage) {
   if (status === 422) return invalidInputMessage ?? '請確認起訖時間格式正確，且起始時間早於結束時間。';
@@ -85,6 +86,7 @@ export default function App() {
         )}
       </section>
       <HourlyActivity />
+      <StationComparison />
     </main>
   );
 }
