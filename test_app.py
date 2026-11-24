@@ -184,3 +184,128 @@ def test_hourly_activity_returns_503_for_unavailable_database(client, database_p
     assert response.status_code == 503
     assert "Trip database is unavailable." in response.json()["detail"]
     assert not database_path.exists()
+
+
+IMBALANCE_URL = "/stations/imbalance"
+
+
+def test_station_imbalance_default_threshold_and_date_boundaries(seeded_client, database_path):
+    with closing(sqlite3.connect(database_path)) as db, db:
+        db.executemany(
+            """
+            INSERT INTO trips (ride_id, started_at, ended_at, start_station_id, end_station_id)
+            VALUES (?, ?, ?, ?, ?)
+            """,
+            [
+                (f"threshold-{i}", f"{DAY} 00:00:00.000000", f"{DAY} 12:00:00.000000",
+                 "at-20", "at-19" if i < 19 else None)
+                for i in range(20)
+            ] + [
+                ("opening-return", "2025-01-13 23:59:59.999999", f"{DAY} 00:00:00.000000", "prior", "return"),
+                ("closing-return", f"{DAY} 23:59:59.999999", "2025-01-15 00:00:00.000000", None, "at-20"),
+                ("after", "2025-01-15 00:00:00.000000", "2025-01-15 00:01:00.000000", "at-20", None),
+                ("missing-space", f"{DAY} 12:00:00.000000", f"{DAY} 12:01:00.000000", " \t\r\n\v\f", ""),
+            ],
+        )
+
+    response = seeded_client.get(IMBALANCE_URL, params={"date": DAY})
+    assert response.status_code == 200
+    assert response.json() == {
+        "date": DAY,
+        "min_activity": 20,
+        "total_stations": 1,
+        "stations": [{
+            "station_id": "at-20", "departures": 20, "arrivals": 0,
+            "net_departures": 20, "total_activity": 20, "imbalance_rate": 100.0,
+        }],
+    }
+
+    response = seeded_client.get(IMBALANCE_URL, params={"date": DAY, "min_activity": 1})
+    assert response.status_code == 200
+    stations = {row["station_id"]: row for row in response.json()["stations"]}
+    assert set(stations) == {"at-20", "at-19", "return", "31600", "31601"}
+    assert stations["at-19"]["total_activity"] == 19
+    assert stations["return"]["arrivals"] == 1
+    assert stations["at-20"]["arrivals"] == 0
+
+
+def test_station_imbalance_sorts_by_raw_rate_absolute_net_and_station_id(seeded_client, database_path):
+    counts = [
+        ("z-higher-rate", 100, 99),
+        ("a-lower-rate", 101, 100),
+        ("only-out", 1, 0),
+        ("only-in", 0, 2),
+        ("a-balanced", 1, 1),
+        ("z-balanced", 2, 2),
+    ]
+    trips = [
+        (f"{station}-out-{i}", station, None)
+        for station, departures, _ in counts for i in range(departures)
+    ] + [
+        (f"{station}-in-{i}", None, station)
+        for station, _, arrivals in counts for i in range(arrivals)
+    ]
+    with closing(sqlite3.connect(database_path)) as db, db:
+        db.executemany(
+            """
+            INSERT INTO trips (ride_id, start_station_id, end_station_id, started_at, ended_at)
+            VALUES (?, ?, ?, '2025-01-16 12:00:00.000000', '2025-01-16 12:01:00.000000')
+            """,
+            trips,
+        )
+
+    response = seeded_client.get(IMBALANCE_URL, params={"date": "2025-01-16", "min_activity": 1})
+    assert response.status_code == 200
+    payload = response.json()
+    assert payload["total_stations"] == 6
+    assert [(row["station_id"], row["net_departures"], row["imbalance_rate"]) for row in payload["stations"]] == [
+        ("only-in", -2, 100.0),
+        ("only-out", 1, 100.0),
+        ("z-higher-rate", 1, 0.50),
+        ("a-lower-rate", 1, 0.50),
+        ("a-balanced", 0, 0.0),
+        ("z-balanced", 0, 0.0),
+    ]
+
+
+@pytest.mark.parametrize(("day", "threshold"), [
+    ("2025-01-16", 20), ("9999-12-31", 20), (DAY, 2**63),
+])
+def test_station_imbalance_empty_ranking(seeded_client, day, threshold):
+    response = seeded_client.get(IMBALANCE_URL, params={"date": day, "min_activity": threshold})
+
+    assert response.status_code == 200
+    assert response.json() == {
+        "date": day, "min_activity": threshold, "total_stations": 0, "stations": [],
+    }
+
+
+@pytest.mark.parametrize("params", [
+    {}, {"date": "2025-02-29"}, {"date": "2025-1-14"}, {"date": DAY + "T00:00:00"},
+    {"date": DAY, "min_activity": "0"}, {"date": DAY, "min_activity": "-1"},
+    {"date": DAY, "min_activity": "1.5"}, {"date": DAY, "min_activity": "20.0"},
+    {"date": DAY, "min_activity": "invalid"},
+])
+def test_station_imbalance_rejects_invalid_query(client, params):
+    assert client.get(IMBALANCE_URL, params=params).status_code == 422
+
+
+def test_station_imbalance_database_unavailable(client, database_path):
+    response = client.get(IMBALANCE_URL, params={"date": DAY})
+
+    assert response.status_code == 503
+    assert "Trip database is unavailable." in response.json()["detail"]
+    assert not database_path.exists()
+
+
+def test_imbalance_remains_a_valid_station_id_for_existing_routes(seeded_client):
+    activity = seeded_client.get(
+        f"{IMBALANCE_URL}/activity", params={"start": START, "end": END}
+    )
+    hourly = seeded_client.get(f"{IMBALANCE_URL}/hourly-activity", params={"date": DAY})
+
+    assert activity.status_code == hourly.status_code == 200
+    assert activity.json()["station_id"] == hourly.json()["station_id"] == "imbalance"
+    assert activity.json()["net_departures"] == 0
+    assert len(hourly.json()["hours"]) == 24
+    assert all(row["departures"] == row["arrivals"] == 0 for row in hourly.json()["hours"])
