@@ -79,3 +79,27 @@ dd { margin: .25rem 0 0; font-size: clamp(1.25rem, 5vw, 2rem); font-variant-nume
 }
 .comparison-zero { stroke: #627e74; stroke-width: 1.5; }
 .station-comparison .chart-legend { flex-wrap: wrap; overflow-wrap: anywhere; }
+
+.imbalance-ranking form label:first-child { grid-column: auto; }
+.ranking-results { margin-top: 1rem; }
+.ranking-scroll {
+  overflow-x: auto;
+  border: 1px solid #cbdad4;
+  border-radius: .85rem;
+  background: white;
+}
+.ranking-scroll table {
+  width: 100%;
+  border-collapse: collapse;
+  white-space: nowrap;
+  font-variant-numeric: tabular-nums;
+}
+.ranking-scroll th, .ranking-scroll td {
+  border-bottom: 1px solid #dce6e1;
+  padding: .55rem .7rem;
+  text-align: right;
+}
+.ranking-scroll thead { background: #e2eeea; }
+.ranking-scroll th:nth-child(2) { text-align: left; }
+.ranking-scroll small { display: block; color: #375d53; }
+.ranking-results button { margin-top: .75rem; }

@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import ImbalanceRanking from './ImbalanceRanking.jsx';
 import StationComparison from './StationComparison.jsx';
 
 function describeHttpError(status, detail, invalidInputMessage) {
@@ -87,6 +88,7 @@ export default function App() {
       </section>
       <HourlyActivity />
       <StationComparison />
+      <ImbalanceRanking requestActivity={requestActivity} />
     </main>
   );
 }
