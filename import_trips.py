@@ -16,6 +16,19 @@ COLUMNS = (
 )
 
 
+CREATE_TRIPS_SQL = """
+CREATE TABLE IF NOT EXISTS trips (
+    ride_id TEXT PRIMARY KEY NOT NULL,
+    started_at TEXT NOT NULL,
+    ended_at TEXT NOT NULL,
+    start_station_id TEXT,
+    end_station_id TEXT,
+    rideable_type TEXT,
+    member_casual TEXT
+)
+"""
+
+
 def read_trips(archive_path):
     with ZipFile(archive_path) as archive:
         members = [
@@ -59,17 +72,7 @@ def main():
     with closing(sqlite3.connect(args.db)) as db:
         with db:
             db.execute("BEGIN IMMEDIATE")
-            db.execute("""
-                CREATE TABLE IF NOT EXISTS trips (
-                    ride_id TEXT PRIMARY KEY NOT NULL,
-                    started_at TEXT NOT NULL,
-                    ended_at TEXT NOT NULL,
-                    start_station_id TEXT,
-                    end_station_id TEXT,
-                    rideable_type TEXT,
-                    member_casual TEXT
-                )
-            """)
+            db.execute(CREATE_TRIPS_SQL)
             for archive in args.archives:
                 db.executemany("""
                     INSERT INTO trips (
